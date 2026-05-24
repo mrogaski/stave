@@ -504,6 +504,7 @@ class GameTemplate(models.Model):
     role_groups: models.ManyToManyField["GameTemplate", RoleGroup] = (
         models.ManyToManyField(RoleGroup, blank=True)
     )
+
     # TODO: validate that Role Groups have the same League as we do.
     # TODO: validate that Role Groups assigned to us are a strict subset
     # of those assigned to our Event
@@ -1973,6 +1974,10 @@ class Application(models.Model):
         return states
 
 
+class ApplicationTransitionError(RuntimeError):
+    """Exception raised when an invalid Application state transition is attempted."""
+
+
 class ApplicationResponse(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     application = models.ForeignKey(
@@ -2220,7 +2225,7 @@ class MergeContext:
             return None
 
         domain = "https://stave.app"  # FIXME: dynamic
-        (entity, attr) = field_components
+        entity, attr = field_components
         if (
             entity not in self.LEGAL_MERGE_FIELDS
             or attr not in self.LEGAL_MERGE_FIELDS.get(entity, {})

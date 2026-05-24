@@ -1,3 +1,7 @@
+from itertools import combinations
+
+import pytest
+
 from stave import models
 
 from .factories import (
@@ -146,6 +150,61 @@ def test_game_query_set__manageable(db, event_manager_user, unprivileged_user):
     assert other_event not in models.Game.objects.manageable(event_manager_user)
 
     assert not models.Game.objects.manageable(unprivileged_user)
+
+
+VALID_APPLICATION_TRANSITIONS = {
+    (models.ApplicationStatus.APPLIED, models.ApplicationStatus.INVITATION_PENDING),
+    (models.ApplicationStatus.APPLIED, models.ApplicationStatus.ASSIGNMENT_PENDING),
+    (models.ApplicationStatus.APPLIED, models.ApplicationStatus.REJECTION_PENDING),
+    (models.ApplicationStatus.APPLIED, models.ApplicationStatus.REJECTED),
+    (models.ApplicationStatus.APPLIED, models.ApplicationStatus.WITHDRAWN),
+    (models.ApplicationStatus.INVITATION_PENDING, models.ApplicationStatus.APPLIED),
+    (models.ApplicationStatus.INVITATION_PENDING, models.ApplicationStatus.INVITED),
+    (
+        models.ApplicationStatus.INVITATION_PENDING,
+        models.ApplicationStatus.DECLINED,
+    ),
+    (
+        models.ApplicationStatus.INVITATION_PENDING,
+        models.ApplicationStatus.WITHDRAWN,
+    ),
+    (models.ApplicationStatus.INVITED, models.ApplicationStatus.CONFIRMED),
+    (models.ApplicationStatus.INVITED, models.ApplicationStatus.DECLINED),
+    (models.ApplicationStatus.INVITED, models.ApplicationStatus.WITHDRAWN),
+    (models.ApplicationStatus.CONFIRMED, models.ApplicationStatus.ASSIGNMENT_PENDING),
+    (models.ApplicationStatus.ASSIGNMENT_PENDING, models.ApplicationStatus.ASSIGNED),
+    (models.ApplicationStatus.ASSIGNMENT_PENDING, models.ApplicationStatus.WITHDRAWN),
+    (models.ApplicationStatus.ASSIGNED, models.ApplicationStatus.WITHDRAWN),
+    (models.ApplicationStatus.REJECTION_PENDING, models.ApplicationStatus.APPLIED),
+    (models.ApplicationStatus.REJECTION_PENDING, models.ApplicationStatus.REJECTED),
+    (models.ApplicationStatus.REJECTION_PENDING, models.ApplicationStatus.WITHDRAWN),
+}
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    VALID_APPLICATION_TRANSITIONS,
+    ids=lambda p: p.name,
+)
+def test_valid_application_transition_success(db, current, target):
+    app = ApplicationFactory(status=current)
+
+    app.status = target
+    app.save()
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    set(combinations(models.ApplicationStatus, 2)) - VALID_APPLICATION_TRANSITIONS,
+    ids=lambda p: p.name,
+)
+def test_invalid_application_transition_failure(db, current, target):
+    app = ApplicationFactory(status=current)
+
+    app.status = target
+
+    with pytest.raises(models.ApplicationTransitionError):
+        app.save()
 
 
 def test_application_form_query_set__listed(

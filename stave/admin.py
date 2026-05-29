@@ -1,5 +1,6 @@
 from allauth.account.decorators import secure_admin_login
 from django.contrib import admin
+from django_fsm import admin as fsm
 
 from . import models
 
@@ -62,9 +63,10 @@ class ApplicationResponseInline(admin.TabularInline):
 
 
 @admin.register(models.Application)
-class ApplicationAdmin(admin.ModelAdmin):
+class ApplicationAdmin(fsm.FSMAdminMixin, admin.ModelAdmin):
     list_display = ("user", "form", "form__event", "status")
     inlines = [ApplicationResponseInline]
+    fsm_fields = ["status"]
 
 
 class GameInline(admin.TabularInline):

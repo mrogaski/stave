@@ -14,6 +14,7 @@ from django.template.defaultfilters import slugify
 from django.urls import reverse
 from django.utils import formats
 from django.utils.translation import gettext_lazy as _
+import django_fsm as fsm
 
 TIMEZONES_CHOICES = [(tz, tz) for tz in sorted(zoneinfo.available_timezones())]
 
@@ -504,6 +505,7 @@ class GameTemplate(models.Model):
     role_groups: models.ManyToManyField["GameTemplate", RoleGroup] = (
         models.ManyToManyField(RoleGroup, blank=True)
     )
+
     # TODO: validate that Role Groups have the same League as we do.
     # TODO: validate that Role Groups assigned to us are a strict subset
     # of those assigned to our Event
@@ -1766,7 +1768,7 @@ class ApplicationQuerySet(models.QuerySet["Application"]):
         )
 
 
-class Application(models.Model):
+class Application(fsm.FSMModelMixin, models.Model):
     ApplicationStatus = ApplicationStatus
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     form = models.ForeignKey(
@@ -1782,7 +1784,9 @@ class Application(models.Model):
         models.ManyToManyField(Game)
     )
     roles: models.ManyToManyField["Application", Role] = models.ManyToManyField(Role)
-    status = models.IntegerField(choices=ApplicationStatus.choices)
+    status = fsm.FSMIntegerField(
+        choices=ApplicationStatus.choices, default=ApplicationStatus.APPLIED
+    )
 
     @property
     def user_visible_status(self) -> ApplicationStatus:
@@ -2220,7 +2224,7 @@ class MergeContext:
             return None
 
         domain = "https://stave.app"  # FIXME: dynamic
-        (entity, attr) = field_components
+        entity, attr = field_components
         if (
             entity not in self.LEGAL_MERGE_FIELDS
             or attr not in self.LEGAL_MERGE_FIELDS.get(entity, {})
